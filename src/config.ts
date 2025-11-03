@@ -66,7 +66,12 @@ export function envToClusterConfig(): ClusterConnectionConfig | undefined {
 
 export function mergeConfig(base: ClusterConnectionConfig | undefined, override: Partial<ClusterConnectionConfig> | undefined): ClusterConnectionConfig | undefined {
   if (!base && !override) return undefined;
-  return { ...(base || {}), ...(override || {}) } as ClusterConnectionConfig;
+  // Only apply override properties that are explicitly defined, so we don't
+  // accidentally clobber values from base (e.g., env-config) with undefined.
+  const cleanedOverride = Object.fromEntries(
+    Object.entries(override || {}).filter(([, value]) => value !== undefined)
+  ) as Partial<ClusterConnectionConfig>;
+  return { ...(base || {}), ...cleanedOverride } as ClusterConnectionConfig;
 }
 
 function toBool(value: string | undefined, defaultValue: boolean): boolean {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { CallToolRequestSchema, ListToolsRequestSchema, ListToolsResultSchema, CompatibilityCallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema, ListToolsResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { getPcsTools } from "./tools/pcs.js";
 
 async function main(): Promise<void> {
@@ -37,7 +37,8 @@ async function main(): Promise<void> {
       throw new Error(`Unknown tool: ${name}`);
     }
     const toolResult = await tool.handler(args);
-    return { toolResult } satisfies typeof CompatibilityCallToolResultSchema._output;
+    // Return the tool's content directly in the CallTool response
+    return toolResult;
   });
 
   const transport = new StdioServerTransport();
