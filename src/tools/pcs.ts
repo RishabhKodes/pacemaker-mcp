@@ -39,6 +39,7 @@ function buildCommand(raw: string, sudo?: boolean): string {
   return cmd;
 }
 
+// ToolSpec type definition for MCP tools
 export type ToolSpec = {
   name: string;
   description?: string;
@@ -46,7 +47,7 @@ export type ToolSpec = {
   handler: (args: any) => Promise<{ content: Array<{ type: "text"; text: string }> }>;
 };
 
-// Reusable schema props for connection settings across all pcs tools
+// Common properties for all pcs tools
 const commonProperties: Record<string, unknown> = {
   cluster: { type: "string", description: "Named cluster in config" },
   host: { type: "string" },
@@ -145,7 +146,7 @@ export function getPcsTools(): ToolSpec[] {
   tools.push({
     name: "pcs_resource_list",
     description:
-      "Shows full resource configuration using 'pcs resource show --full'. Includes agents, parameters, operations, meta-attributes, groups, and ordering/colocation metadata for troubleshooting and audits.",
+      "Shows full resource configuration using 'pcs resource config'. Includes agents, parameters, operations, meta-attributes, groups, and ordering/colocation metadata for troubleshooting and audits.",
     inputSchema: {
       type: "object",
       properties: {
@@ -162,7 +163,7 @@ export function getPcsTools(): ToolSpec[] {
     },
     handler: async (args: CommonInput) => {
       const conn = await resolveConnection(args);
-      const command = buildCommand("pcs resource show --full", conn.sudo);
+      const command = buildCommand("pcs resource config", conn.sudo);
       const { stdout, stderr, exitCode } = await runSshCommand(conn, command, args.timeoutMs);
       const text = formatResult(command, stdout, stderr, exitCode);
       return { content: [{ type: "text", text }] };
