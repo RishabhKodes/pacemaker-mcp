@@ -4,18 +4,18 @@ An MCP server that exposes Pacemaker/pcs commands as tools. It connects to a tar
 
 ### Features
 
-- MCP tools for common Pacemaker operations: `pcs_cluster_status`, `pcs_node_status`, `pcs_resource_list`, and a guarded `pcs_exec`.
-- SSH authentication via private key or password; optional `sudo` support.
-- Configurable via environment variables or a config file.
+- **Pacemaker tools**: `pcs_cluster_status`, `pcs_node_status`, `pcs_resource_list`, plus a guarded `pcs_exec`.
+- **SSH auth**: private key or password; optional `sudo`.
+- **Configurable**: via environment variables or a config file.
 
 ### Install and build
 
 ```bash
 pnpm i || npm i || yarn
-pnpm build || npm run build || yarn build
+npm run build
 ```
 
-### Run with MCP Inspector
+### Quick start with MCP Inspector
 
 ```bash
 npx @modelcontextprotocol/inspector@latest node $(pwd)/dist/index.js
@@ -51,16 +51,41 @@ clusters:
     sudo: true
 ```
 
-### Example Tool Invocations
+Configuration sources are merged in the following order (last-wins per-field):
+- Config file (selected via `PACEMAKER_MCP_CONFIG` or default search paths)
+- Environment variables
+- Per-tool arguments (e.g., `host`, `username`, `sudo`)
 
-- `pcs_cluster_status`: returns `pcs cluster status` output
-- `pcs_node_status`: returns `pcs node status` output
-- `pcs_resource_list`: returns `pcs resource show --full` output
-- `pcs_exec`: run a specific command, e.g. `pcs resource move myres node1` (guarded to `pcs` prefix)
+### Example tool invocations
 
-Each tool accepts either a `cluster` name from config or inline SSH params (e.g., `host`, `username`, `privateKeyPath`, `sudo`).
+- `pcs_cluster_status`: returns `pcs cluster status`
+- `pcs_node_status`: returns `pcs status nodes`
+- `pcs_resource_list`: returns `pcs resource config`
+- `pcs_exec`: run a guarded command, e.g. `pcs resource move myres node1`
 
-### Notes
+Each tool accepts a `cluster` name from config or inline SSH params (`host`, `username`, `privateKeyPath`, `sudo`).
 
-- Start simple: outputs are returned as plain text. If you need structured data, we can add `crm_mon -1 -r -X` parsing and present JSON in a follow-up.
-- This server is similar in spirit to the Kubernetes MCP server, but targets `pcs` via SSH instead of Kubernetes API servers.
+### Security considerations
+
+- Prefer key-based SSH; avoid passwords when possible.
+- Set `PACEMAKER_INSECURE_ACCEPT_UNKNOWN_HOST_KEYS=false` in production.
+- Only use `sudo` if required by your environment.
+
+### Development
+
+```bash
+npm run typecheck
+npm run build
+```
+
+Open with MCP Inspector (from `dist` output):
+
+```bash
+npx @modelcontextprotocol/inspector@latest node $(pwd)/dist/index.js
+```
+
+See `CONTRIBUTING.md` for PR guidelines.
+
+### License
+
+MIT. See `LICENSE`.
