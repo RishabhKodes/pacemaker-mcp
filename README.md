@@ -1,12 +1,76 @@
 ## Pacemaker MCP
 
-An MCP server that exposes [Pacemaker](https://clusterlabs.org/pacemaker/)/pcs commands as tools. It connects to a target cluster node over SSH and runs guarded `pcs` commands.
+An MCP server that exposes [Pacemaker](https://clusterlabs.org/pacemaker/) or pcs commands as tools. It connects to a target cluster node over SSH and runs guarded `pcs` commands.
 
 ### Features
 
 - **Pacemaker tools**: `pcs_cluster_status`, `pcs_node_status`, `pcs_resource_list`, plus a guarded `pcs_exec`.
 - **SSH auth**: private key or password; optional `sudo`.
 - **Configurable**: via environment variables or a config file.
+
+### Use in Cursor and Claude (MCP clients)
+
+#### Cursor
+
+1) Build this project so `dist/index.js` exists.
+
+```bash
+npm run build
+```
+
+2) Edit your global Cursor MCP config and add this server.
+
+On macOS, the file is typically at `~/.cursor/mcp.json`.
+
+Example entry (use absolute paths):
+
+```json
+{
+  "mcpServers": {
+    "pacemaker-mcp-server": {
+      "command": "node",
+      "args": ["/absolute/path/to/pcs_mcp/dist/index.js"],
+      "env": {
+        "PACEMAKER_SSH_HOST": "cluster-node.example.com",
+        "PACEMAKER_SSH_USER": "ec2-user",
+        "PACEMAKER_SSH_KEY_PATH": "/Users/you/.ssh/id_rsa",
+        "PACEMAKER_USE_SUDO": "true"
+      }
+    }
+  }
+}
+```
+
+Restart Cursor after saving the file.
+
+#### Claude Desktop
+
+1) Build this project so `dist/index.js` exists.
+
+2) Edit the Claude Desktop config to register the server, then restart the app.
+
+On macOS, the file is typically at `~/Library/Application Support/Claude/claude_desktop_config.json`.
+
+Example entry (merge into your existing JSON):
+
+```json
+{
+  "mcpServers": {
+    "pacemaker-mcp-server": {
+      "command": "node",
+      "args": ["/absolute/path/to/pcs_mcp/dist/index.js"],
+      "env": {
+        "PACEMAKER_MCP_CONFIG": "/absolute/path/to/pacemaker.yaml"
+      }
+    }
+  }
+}
+```
+
+Notes:
+- Use absolute paths in `args` and in any file-based env like `PACEMAKER_MCP_CONFIG`.
+- You can set connection details via env (as above) or via a config file referenced by `PACEMAKER_MCP_CONFIG`.
+- For production, prefer key-based SSH and passwordless `sudo` if `sudo` is required.
 
 ### Install and build
 
@@ -85,70 +149,6 @@ npx @modelcontextprotocol/inspector@latest node $(pwd)/dist/index.js
 ```
 
 See `CONTRIBUTING.md` for PR guidelines.
-
-### Use in Cursor and Claude (MCP clients)
-
-#### Cursor
-
-1) Build this project so `dist/index.js` exists.
-
-```bash
-npm run build
-```
-
-2) Edit your global Cursor MCP config and add this server.
-
-On macOS, the file is typically at `~/.cursor/mcp.json`.
-
-Example entry (use absolute paths):
-
-```json
-{
-  "mcpServers": {
-    "pacemaker-mcp-server": {
-      "command": "node",
-      "args": ["/absolute/path/to/pcs_mcp/dist/index.js"],
-      "env": {
-        "PACEMAKER_SSH_HOST": "cluster-node.example.com",
-        "PACEMAKER_SSH_USER": "ec2-user",
-        "PACEMAKER_SSH_KEY_PATH": "/Users/you/.ssh/id_rsa",
-        "PACEMAKER_USE_SUDO": "true"
-      }
-    }
-  }
-}
-```
-
-Restart Cursor after saving the file.
-
-#### Claude Desktop
-
-1) Build this project so `dist/index.js` exists.
-
-2) Edit the Claude Desktop config to register the server, then restart the app.
-
-On macOS, the file is typically at `~/Library/Application Support/Claude/claude_desktop_config.json`.
-
-Example entry (merge into your existing JSON):
-
-```json
-{
-  "mcpServers": {
-    "pacemaker-mcp-server": {
-      "command": "node",
-      "args": ["/absolute/path/to/pcs_mcp/dist/index.js"],
-      "env": {
-        "PACEMAKER_MCP_CONFIG": "/absolute/path/to/pacemaker.yaml"
-      }
-    }
-  }
-}
-```
-
-Notes:
-- Use absolute paths in `args` and in any file-based env like `PACEMAKER_MCP_CONFIG`.
-- You can set connection details via env (as above) or via a config file referenced by `PACEMAKER_MCP_CONFIG`.
-- For production, prefer key-based SSH and passwordless `sudo` if `sudo` is required.
 
 ### License
 
