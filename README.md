@@ -1,28 +1,80 @@
 ## Pacemaker MCP
 
-An MCP server that exposes [Pacemaker](https://clusterlabs.org/pacemaker/) or pcs commands as tools. It connects to a target cluster node over SSH and runs guarded `pcs` commands.
+Model Context Protocol (MCP) server that exposes [Pacemaker](https://clusterlabs.org/pacemaker/) `pcs` commands as safe, guardrailed tools over stdio. It connects to a target cluster node via SSH (key or password auth; optional `sudo`) and runs read-only status queries and controlled operations. Ideal for using Pacemaker safely from MCP-aware clients like Cursor or Claude.
 
 ### Features
 
 - **Pacemaker tools**: `pcs_cluster_status`, `pcs_node_status`, `pcs_resource_list`, plus a guarded `pcs_exec`.
-- **SSH auth**: private key or password; optional `sudo`.
-- **Configurable**: via environment variables or a config file.
+- **Logs access**: `pcs_logs_common`, `pcs_logs_tail`, `pcs_logs_journalctl` for Pacemaker/Corosync troubleshooting.
+- **Flexible auth**: SSH private key or password; optional `sudo`.
+- **Configurable**: environment variables or a JSON/YAML config file.
 
-### Use in Cursor and Claude (MCP clients)
+### Requirements
+
+- Node.js >= 18
+- Access to a Pacemaker cluster node over SSH
+
+### Setup (from scratch)
+
+```bash
+# 1) Install dependencies
+npm install
+
+# 2) Build the server (emits dist/index.js)
+npm run build
+
+# 3) (Optional) Verify locally with MCP Inspector
+npx @modelcontextprotocol/inspector@latest node $(pwd)/dist/index.js
+```
+
+You can also run directly with Node:
+
+```bash
+node dist/index.js
+```
+
+### Configure connection
+
+Using environment variables:
+
+```bash
+export PACEMAKER_SSH_HOST=cluster-node.example.com
+export PACEMAKER_SSH_USER=ec2-user
+export PACEMAKER_SSH_KEY_PATH=~/.ssh/id_rsa
+# Optional
+export PACEMAKER_SSH_PORT=22
+export PACEMAKER_USE_SUDO=true
+export PACEMAKER_INSECURE_ACCEPT_UNKNOWN_HOST_KEYS=true
+```
+
+Or point to a config file via `PACEMAKER_MCP_CONFIG` (JSON or YAML):
+
+```yaml
+default:
+  host: cluster-node.example.com
+  username: ec2-user
+  privateKeyPath: /home/me/.ssh/id_rsa
+  sudo: true
+clusters:
+  prod:
+    host: prod-node
+    username: hacluster
+    privateKeyPath: /home/me/.ssh/prod
+    sudo: true
+```
+
+Configuration sources are merged in this order (last-wins per field):
+- Config file (from `PACEMAKER_MCP_CONFIG` or default search paths)
+- Environment variables
+- Per-tool arguments (e.g., `host`, `username`, `sudo`)
+
+### Use with MCP clients
 
 #### Cursor
 
-1) Build this project so `dist/index.js` exists.
+1) Build so `dist/index.js` exists: `npm run build`
 
-```bash
-npm run build
-```
-
-2) Edit your global Cursor MCP config and add this server.
-
-On macOS, the file is typically at `~/.cursor/mcp.json`.
-
-Example entry (use absolute paths):
+2) Add the server to your global Cursor MCP config (macOS: `~/.cursor/mcp.json`). Use absolute paths.
 
 ```json
 {
@@ -41,17 +93,13 @@ Example entry (use absolute paths):
 }
 ```
 
-Restart Cursor after saving the file.
+Restart Cursor after saving.
 
 #### Claude Desktop
 
-1) Build this project so `dist/index.js` exists.
+1) Build `dist/index.js`: `npm run build`
 
-2) Edit the Claude Desktop config to register the server, then restart the app.
-
-On macOS, the file is typically at `~/Library/Application Support/Claude/claude_desktop_config.json`.
-
-Example entry (merge into your existing JSON):
+2) Add the server to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS), then restart Claude. Use absolute paths.
 
 ```json
 {
@@ -68,64 +116,22 @@ Example entry (merge into your existing JSON):
 ```
 
 Notes:
-- Use absolute paths in `args` and in any file-based env like `PACEMAKER_MCP_CONFIG`.
-- You can set connection details via env (as above) or via a config file referenced by `PACEMAKER_MCP_CONFIG`.
+- Prefer absolute paths in `args` and file-based env like `PACEMAKER_MCP_CONFIG`.
+- Configure connection either via env vars or a config file.
 - For production, prefer key-based SSH and passwordless `sudo` if `sudo` is required.
 
-### Install and build
-
-```bash
-pnpm i || npm i || yarn
-npm run build
-```
-
-### Quick start with MCP Inspector
-
-```bash
-npx @modelcontextprotocol/inspector@latest node $(pwd)/dist/index.js
-```
-
-### Configuration
-
-You can configure a default connection with environment variables:
-
-```bash
-export PACEMAKER_SSH_HOST=cluster-node.example.com
-export PACEMAKER_SSH_USER=ec2-user
-export PACEMAKER_SSH_KEY_PATH=~/.ssh/id_rsa
-# Optional
-export PACEMAKER_SSH_PORT=22
-export PACEMAKER_USE_SUDO=true
-export PACEMAKER_INSECURE_ACCEPT_UNKNOWN_HOST_KEYS=true
-```
-
-Or provide a file via `PACEMAKER_MCP_CONFIG` (JSON or YAML):
-
-```yaml
-default:
-  host: cluster-node.example.com
-  username: ec2-user
-  privateKeyPath: /home/me/.ssh/id_rsa
-  sudo: true
-clusters:
-  prod:
-    host: prod-node
-    username: hacluster
-    privateKeyPath: /home/me/.ssh/prod
-    sudo: true
-```
-
-Configuration sources are merged in the following order (last-wins per-field):
-- Config file (selected via `PACEMAKER_MCP_CONFIG` or default search paths)
-- Environment variables
-- Per-tool arguments (e.g., `host`, `username`, `sudo`)
-
-### Example tool invocations
+### Available tools (examples)
 
 - `pcs_cluster_status`: returns `pcs cluster status`
 - `pcs_node_status`: returns `pcs status nodes`
 - `pcs_resource_list`: returns `pcs resource config`
 - `pcs_exec`: run a guarded command, e.g. `pcs resource move myres node1`
+- `pcs_logs_common`: tail common log files and optionally journal; e.g., last 200 lines of Pacemaker/Corosync logs
+  - args: `{ "lines": 200, "includeJournal": true }`
+- `pcs_logs_tail`: tail specific log files
+  - args: `{ "paths": ["/var/log/pacemaker/pacemaker.log", "/var/log/cluster/corosync.log"], "lines": 500 }`
+- `pcs_logs_journalctl`: read journal for units (defaults to pacemaker and corosync)
+  - args: `{ "units": ["pacemaker", "corosync"], "lines": 300, "since": "2 hours ago", "priority": "warning", "grep": "fail|error" }`
 
 Each tool accepts a `cluster` name from config or inline SSH params (`host`, `username`, `privateKeyPath`, `sudo`).
 
@@ -140,6 +146,8 @@ Each tool accepts a `cluster` name from config or inline SSH params (`host`, `us
 ```bash
 npm run typecheck
 npm run build
+# Run from TS directly (dev):
+npm run dev
 ```
 
 Open with MCP Inspector (from `dist` output):

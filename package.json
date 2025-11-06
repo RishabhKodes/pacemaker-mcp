@@ -4,13 +4,25 @@
   "private": true,
   "type": "module",
   "description": "Model Context Protocol (MCP) server exposing Pacemaker/pcs tools over stdio",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
   "bin": {
     "pacemaker-mcp-server": "dist/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "node --loader ts-node/esm src/index.ts"
   },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "pacemaker",
+    "pcs",
+    "ssh"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.6.0",
     "ssh2": "^1.15.0",

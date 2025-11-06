@@ -1,3 +1,13 @@
+# OS / editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Env / local config
+config/*.yaml
+config/*.yml
+config/*.json
+
 # Logs
 logs
 *.log
