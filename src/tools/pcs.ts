@@ -170,39 +170,6 @@ export function getPcsTools(): ToolSpec[] {
     },
   });
 
-  tools.push({
-    name: "pcs_exec",
-    description:
-      "Execute an arbitrary 'pcs' command (must start with 'pcs '). Use for advanced operations not covered by dedicated tools. Be cautious: commands may change cluster state.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        cluster: { type: "string" },
-        host: { type: "string" },
-        username: { type: "string" },
-        port: { type: "number" },
-        privateKeyPath: { type: "string" },
-        password: { type: "string" },
-        passphrase: { type: "string" },
-        sudo: { type: "boolean" },
-        timeoutMs: { type: "number" },
-        command: { type: "string", description: "Command string starting with 'pcs '" },
-      },
-      required: ["command"],
-    },
-    handler: async (args: CommonInput & { command: string }) => {
-      const cmd = (args.command || "").trim();
-      if (!/^pcs\s/.test(cmd)) {
-        throw new McpError(ErrorCode.InvalidParams, "Only 'pcs' commands are permitted.");
-      }
-      const conn = await resolveConnection(args);
-      const command = buildCommand(cmd, conn.sudo);
-      const { stdout, stderr, exitCode } = await runSshCommand(conn, command, args.timeoutMs);
-      const text = formatResult(command, stdout, stderr, exitCode);
-      return { content: [{ type: "text", text }] };
-    },
-  });
-
   // General status tools
   tools.push(
     makeTool(
