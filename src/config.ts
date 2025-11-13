@@ -5,8 +5,7 @@ import os from "node:os";
 import YAML from "yaml";
 
 export type ClusterConnectionConfig = {
-  host: string;
-  username: string;
+  // Single connection method: OpenSSH config alias
   port?: number;
   privateKeyPath?: string;
   password?: string;
@@ -14,6 +13,9 @@ export type ClusterConnectionConfig = {
   sudo?: boolean;
   insecureAcceptUnknownHostKeys?: boolean;
   readyTimeoutMs?: number;
+  // Optional OpenSSH config integration
+  sshConfigPath?: string;
+  sshConfigHost?: string;
 };
 
 export type PacemakerServerConfig = {
@@ -41,7 +43,17 @@ export async function loadConfig(): Promise<PacemakerServerConfig> {
 
   for (const p of defaultPaths) {
     const conf = await readConfigFile(p).catch(() => undefined);
-    if (conf) return conf;
+    if (conf) {
+      // Merge environment defaults on top of file config (env wins)
+      const envConf = envToClusterConfig();
+      if (envConf) {
+        return {
+          default: mergeConfig(conf.default, envConf),
+          clusters: conf.clusters,
+        };
+      }
+      return conf;
+    }
   }
 
   // Fallback to env-only config
@@ -51,9 +63,9 @@ export async function loadConfig(): Promise<PacemakerServerConfig> {
 }
 
 export function envToClusterConfig(): ClusterConnectionConfig | undefined {
-  const host = process.env.PACEMAKER_SSH_HOST;
-  const username = process.env.PACEMAKER_SSH_USER || process.env.PACEMAKER_SSH_USERNAME;
-  if (!host || !username) return undefined;
+  const sshConfigPath = process.env.PACEMAKER_SSH_CONFIG_PATH;
+  const sshConfigHost = process.env.PACEMAKER_SSH_CONFIG_HOST || process.env.PACEMAKER_SSH_HOST_ALIAS;
+  if (!sshConfigHost) return undefined;
   const port = process.env.PACEMAKER_SSH_PORT ? Number(process.env.PACEMAKER_SSH_PORT) : undefined;
   const privateKeyPath = process.env.PACEMAKER_SSH_KEY_PATH;
   const password = process.env.PACEMAKER_SSH_PASSWORD;
@@ -61,7 +73,7 @@ export function envToClusterConfig(): ClusterConnectionConfig | undefined {
   const sudo = toBool(process.env.PACEMAKER_USE_SUDO, false);
   const insecureAcceptUnknownHostKeys = toBool(process.env.PACEMAKER_INSECURE_ACCEPT_UNKNOWN_HOST_KEYS, true);
   const readyTimeoutMs = process.env.PACEMAKER_SSH_READY_TIMEOUT_MS ? Number(process.env.PACEMAKER_SSH_READY_TIMEOUT_MS) : undefined;
-  return { host, username, port, privateKeyPath, password, passphrase, sudo, insecureAcceptUnknownHostKeys, readyTimeoutMs };
+  return { port, privateKeyPath, password, passphrase, sudo, insecureAcceptUnknownHostKeys, readyTimeoutMs, sshConfigPath, sshConfigHost };
 }
 
 export function mergeConfig(base: ClusterConnectionConfig | undefined, override: Partial<ClusterConnectionConfig> | undefined): ClusterConnectionConfig | undefined {

@@ -4,31 +4,26 @@ import { runSshCommand } from "../ssh.js";
 
 type CommonInput = {
   cluster?: string;
-  host?: string;
-  username?: string;
-  port?: number;
-  privateKeyPath?: string;
-  password?: string;
-  passphrase?: string;
   sudo?: boolean;
   timeoutMs?: number;
+  sshConfigPath?: string;
+  sshConfigHost?: string;
 };
 
 async function resolveConnection(input: CommonInput): Promise<ClusterConnectionConfig> {
   const globalConfig = await loadConfig();
   const base = input.cluster ? globalConfig.clusters?.[input.cluster] : globalConfig.default;
   const override: Partial<ClusterConnectionConfig> = {
-    host: input.host,
-    username: input.username,
-    port: input.port,
-    privateKeyPath: input.privateKeyPath,
-    password: input.password,
-    passphrase: input.passphrase,
     sudo: input.sudo,
+    sshConfigPath: input.sshConfigPath,
+    sshConfigHost: input.sshConfigHost,
   };
   const conf = mergeConfig(base, override);
-  if (!conf?.host || !conf.username) {
-    throw new McpError(ErrorCode.InvalidParams, "Missing SSH host/username; provide via args, env, or config file");
+  if (!conf?.sshConfigHost) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      "Provide 'sshConfigHost' via args or config to select an OpenSSH Host alias"
+    );
   }
   return conf;
 }
@@ -37,6 +32,11 @@ function buildCommand(raw: string, sudo?: boolean): string {
   const cmd = raw.trim();
   if (sudo) return `sudo ${cmd}`;
   return cmd;
+}
+
+function shQuote(value: string): string {
+  // Safe single-quote for POSIX shells: close, escape single quote, reopen
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
 }
 
 // ToolSpec type definition for MCP tools
@@ -50,14 +50,10 @@ export type ToolSpec = {
 // Common properties for all pcs tools
 const commonProperties: Record<string, unknown> = {
   cluster: { type: "string", description: "Named cluster in config" },
-  host: { type: "string" },
-  username: { type: "string" },
-  port: { type: "number" },
-  privateKeyPath: { type: "string" },
-  password: { type: "string" },
-  passphrase: { type: "string" },
   sudo: { type: "boolean", description: "Prefix commands with sudo on the remote host" },
   timeoutMs: { type: "number", description: "SSH command timeout in milliseconds" },
+  sshConfigPath: { type: "string", description: "Path to OpenSSH config (defaults to ~/.ssh/config)" },
+  sshConfigHost: { type: "string", description: "OpenSSH Host alias to resolve connection parameters" },
 };
 
 function makeTool(
