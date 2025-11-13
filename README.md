@@ -4,7 +4,7 @@ Model Context Protocol (MCP) server that exposes [Pacemaker](https://clusterlabs
 
 ### Features
 
-- **Pacemaker tools**: `pcs_cluster_status`, `pcs_node_status`, `pcs_resource_list`, plus a guarded `pcs_exec`.
+- **Pacemaker tools**: `pcs_cluster_status`, `pcs_node_status`, `pcs_resource_list`.
 - **Logs access**: `pcs_logs_common`, `pcs_logs_tail`, `pcs_logs_journalctl` for Pacemaker/Corosync troubleshooting.
 - **Flexible auth**: SSH private key or password; optional `sudo`.
 - **Configurable**: environment variables or a JSON/YAML config file.
@@ -125,7 +125,6 @@ Notes:
 - `pcs_cluster_status`: returns `pcs cluster status`
 - `pcs_node_status`: returns `pcs status nodes`
 - `pcs_resource_list`: returns `pcs resource config`
-- `pcs_exec`: run a guarded command, e.g. `pcs resource move myres node1`
 - `pcs_logs_common`: tail common log files and optionally journal; e.g., last 200 lines of Pacemaker/Corosync logs
   - args: `{ "lines": 200, "includeJournal": true }`
 - `pcs_logs_tail`: tail specific log files

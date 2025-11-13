@@ -401,6 +401,98 @@ export function getPcsTools(): ToolSpec[] {
     )
   );
 
+  // Log retrieval tools
+  tools.push(
+    makeTool(
+      "pcs_logs_tail",
+      "Tail last N lines from one or more log file paths. Skips missing files.",
+      {
+        paths: {
+          type: "array",
+          items: { type: "string" },
+          description: "Absolute log file paths to read",
+        },
+        lines: { type: "number", description: "Number of lines per file (default 200)" },
+      },
+      ["paths"],
+      (args) => {
+        const lines = Math.max(1, Number(args.lines || 200));
+        const quoted = (Array.isArray(args.paths) ? args.paths : []).map((p: string) => shQuote(p));
+        if (!quoted.length) {
+          throw new McpError(ErrorCode.InvalidParams, "Provide at least one path");
+        }
+        // POSIX loop to avoid errors on missing files
+        const list = quoted.join(" ");
+        return `for p in ${list}; do if [ -f "$p" ]; then echo "=== $p ==="; tail -n ${lines} "$p"; fi; done`;
+      }
+    )
+  );
+
+  tools.push(
+    makeTool(
+      "pcs_logs_common",
+      "Retrieve common Pacemaker/Corosync logs and optional journal snippets.",
+      {
+        lines: { type: "number", description: "Number of lines per file/section (default 200)" },
+        includeJournal: { type: "boolean", description: "Include journalctl for pacemaker and corosync" },
+      },
+      undefined,
+      (args) => {
+        const lines = Math.max(1, Number(args.lines || 200));
+        const paths = [
+          "/var/log/pacemaker/pacemaker.log",
+          "/var/log/cluster/corosync.log",
+          "/var/log/messages",
+          "/var/log/syslog",
+        ];
+        const quoted = paths.map((p) => shQuote(p)).join(" ");
+        const filePart = `for p in ${quoted}; do if [ -f "$p" ]; then echo "=== $p ==="; tail -n ${lines} "$p"; fi; done`;
+        if (args.includeJournal) {
+          const journal = `echo "=== journalctl pacemaker ==="; journalctl -u pacemaker -n ${lines} --no-pager; echo "=== journalctl corosync ==="; journalctl -u corosync -n ${lines} --no-pager`;
+          return `${filePart}; ${journal}`;
+        }
+        return filePart;
+      }
+    )
+  );
+
+  tools.push(
+    makeTool(
+      "pcs_logs_journalctl",
+      "Read journal logs via journalctl; defaults to pacemaker and corosync units.",
+      {
+        units: {
+          type: "array",
+          items: { type: "string" },
+          description: "Systemd units (e.g., pacemaker, corosync, pacemaker.service)",
+        },
+        lines: { type: "number", description: "Number of lines (default 200)" },
+        since: { type: "string", description: "journalctl --since value (e.g., '1 hour ago', '2024-10-01')" },
+        until: { type: "string", description: "journalctl --until value" },
+        priority: { type: "string", description: "journalctl -p priority (emerg..debug)" },
+        grep: { type: "string", description: "journalctl -g regex filter" },
+      },
+      undefined,
+      (args) => {
+        const lines = Math.max(1, Number(args.lines || 200));
+        const units = (Array.isArray(args.units) && args.units.length ? args.units : ["pacemaker", "corosync"]) as string[];
+        const normUnits = units.map((u) => (u.endsWith(".service") ? u : `${u}.service`));
+        const opt = [
+          `-n ${lines}`,
+          "--no-pager",
+          args.since ? `--since ${shQuote(String(args.since))}` : "",
+          args.until ? `--until ${shQuote(String(args.until))}` : "",
+          args.priority ? `-p ${shQuote(String(args.priority))}` : "",
+          args.grep ? `-g ${shQuote(String(args.grep))}` : "",
+        ].filter(Boolean).join(" ");
+        const sections = normUnits
+          .map((u) => `echo "=== journalctl ${u} ==="; journalctl -u ${shQuote(u)} ${opt}`)
+          .join("; ");
+        return sections;
+      }
+    )
+  );
+
   return tools;
 }
 
